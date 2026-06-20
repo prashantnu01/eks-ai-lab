@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: bedrock-api
+  labels:
+    app: bedrock-api
+spec:
+  # LoadBalancer triggers the AWS cloud controller to provision an ELB
+  # automatically and wire it to the pods behind this service.
+  type: LoadBalancer
+  selector:
+    app: bedrock-api
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8000
+      protocol: TCP

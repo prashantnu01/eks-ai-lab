@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bedrock-api
+  labels:
+    app: bedrock-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: bedrock-api
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      # maxUnavailable:0 — never drop below the desired replica count during
+      # a rollout. New pods must pass readiness before old ones are removed,
+      # which is what gave the zero-downtime v1 -> v2 switch.
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: bedrock-api
+    spec:
+      # IRSA: this service account is annotated with the IAM role ARN by
+      # eksctl. No static AWS keys are mounted anywhere.
+      serviceAccountName: bedrock-sa
+      containers:
+        - name: bedrock-api
+          # Replace <ACCOUNT_ID> with your AWS account id, or use the public
+          # Docker Hub image: prashantnu01/bedrock-api:v1
+          image: <ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/bedrock-api:v2
+          ports:
+            - containerPort: 8000
+          env:
+            - name: AWS_REGION
+              value: us-east-1
+            - name: BEDROCK_MODEL_ID
+              value: us.anthropic.claude-haiku-4-5-20251001-v1:0
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
