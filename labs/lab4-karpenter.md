@@ -215,12 +215,21 @@ helm uninstall karpenter -n kube-system
 aws cloudformation delete-stack --stack-name "Karpenter-${CLUSTER_NAME}"
 ```
 
-## Key learnings to capture (fill in after running)
-- [ ] Which instance type(s) Karpenter chose vs the old fixed `t3.medium`.
-- [ ] Spot vs On-Demand split, and whether any Spot interruption occurred.
-- [ ] Cost delta — record the new ~$/day vs the Lab 1–3 baseline (~$3.70/day).
-- [ ] How fast a pending pod got a node (provisioning latency).
-- [ ] Consolidation behaviour when scaling `8 → 2`.
+## Key learnings — results (fill in after running)
+
+> Capture the real values here as you execute, then flip the Lab 4 status to ✅
+> in the README and convert this doc to past tense (matching Labs 1–3).
+
+| Metric | Lab 1–3 baseline | Lab 4 actual (fill in) | How to get it |
+|---|---|---|---|
+| Node instance type(s) | `t3.medium × 2` (fixed) | _____ | `kubectl get nodes -L node.kubernetes.io/instance-type` |
+| Capacity type (Spot/On-Demand) | On-Demand only | _____ | `kubectl get nodes -L karpenter.sh/capacity-type` |
+| Spot interruption seen? | n/a | _____ | check Karpenter logs / `kubectl get nodeclaims` |
+| Provisioning latency (pending → Ready) | n/a (always on) | _____ s | time between `kubectl get pods` pending and node `Ready` |
+| Cost (~$/day) | ~$3.70/day | _____ | AWS Cost Explorer, filtered by `Project=eks-ai-lab` tag |
+| Consolidation on scale `8 → 2` | n/a | _____ | `kubectl get nodes -w` after `kubectl scale ... --replicas=2` |
+
+**Notes / surprises:** _____
 
 ## Gotchas (anticipated)
 - `karpenter.sh/v1` (NodePool) and `karpenter.k8s.aws/v1` (EC2NodeClass) are the

@@ -65,3 +65,66 @@ sequenceDiagram
 | Same-layer `perl` purge | Removing files in the same `RUN` layer as install shrinks the image and cleared 6 CVEs |
 | `us.` model prefix | Claude 4.x on Bedrock requires a cross-region inference profile, not a bare model id |
 | LoadBalancer Service | Lets the AWS cloud controller provision and manage the ELB declaratively |
+
+---
+
+## Lab 4 — Karpenter node provisioning
+
+> **Status: in progress.** Full runbook in [`labs/lab4-karpenter.md`](../labs/lab4-karpenter.md).
+
+### What changes
+
+Labs 1–3 run on a **static managed node group** — a fixed `t3.medium × 2` that is
+always on whether or not the workload needs it. Lab 4 replaces that with
+**Karpenter**, which provisions nodes *on demand* in response to unschedulable pods.
+
+```mermaid
+flowchart LR
+    subgraph before["Before — managed node group"]
+        d1[Deployment] --> mng[Fixed t3.medium x2<br/>always on]
+    end
+
+    subgraph after["After — Karpenter"]
+        d2[Deployment] -->|pending pod| k[Karpenter controller]
+        k -->|reads| pool[NodePool +<br/>EC2NodeClass]
+        k -->|CreateFleet| node[Right-sized node<br/>Spot or On-Demand]
+        node -->|idle| consolidate[Consolidate / scale toward 0]
+    end
+
+    before -.replaced by.-> after
+```
+
+### Provisioning flow
+
+```mermaid
+sequenceDiagram
+    participant Sched as kube-scheduler
+    participant Karp as Karpenter controller
+    participant API as AWS EC2 / Fleet API
+    participant Node as New EC2 node
+
+    Sched->>Karp: pod is unschedulable (no capacity)
+    Karp->>Karp: match pod requirements to NodePool constraints
+    Karp->>API: CreateFleet — cheapest instance that fits (Spot first)
+    API-->>Node: launch + bootstrap (AL2023, KarpenterNodeRole)
+    Node->>Sched: registers, becomes Ready
+    Sched->>Node: bind the pending pod
+    Note over Karp,Node: when nodes go idle, Karpenter consolidates / removes them
+```
+
+### Why Karpenter
+
+| Decision | Reason |
+|---|---|
+| Karpenter over static node group | Provisions the exact instance a pending pod needs, instead of paying for fixed idle capacity |
+| Spot + On-Demand mix | Spot for cost, On-Demand fallback for availability — ~40–60% cheaper for bursty lab workloads |
+| Instance flexibility (`t`/`m`/`c`, gen > 2) | Lets Karpenter right-size per workload rather than pinning one type |
+| `consolidationPolicy: WhenEmptyOrUnderutilized` | Bin-packs and scales toward zero when idle — the core cost win |
+| `limits.cpu` on the NodePool | Hard ceiling so a runaway scale-up can't provision unbounded EC2 |
+| SQS interruption queue | Graceful drain on Spot reclamation rather than abrupt pod loss |
+
+### What it sets up
+
+Karpenter scales **nodes**; the next lab (HPA) scales **pods**. Together they form
+the full autoscaling story: HPA adds pods under load → Karpenter adds nodes to fit
+them → both scale back down when the load passes.

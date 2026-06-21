@@ -1,0 +1,22 @@
+# EC2NodeClass — HOW Karpenter builds a node (AMI, role, subnets, SGs).
+# Lab 4. Uses the current stable API group karpenter.k8s.aws/v1 (not v1beta1).
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: default
+spec:
+  amiFamily: AL2023                 # Amazon Linux 2023, matches Labs 1-3
+  role: "KarpenterNodeRole-eks-ai-lab"
+  amiSelectorTerms:
+    - alias: al2023@latest
+  subnetSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: "eks-ai-lab"
+  securityGroupSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: "eks-ai-lab"
+  tags:
+    Environment: lab
+    Owner: prashant
+    Project: eks-ai-lab
+    CostCenter: learning
