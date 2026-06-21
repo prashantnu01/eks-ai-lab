@@ -129,6 +129,8 @@ kubectl exec <pod> -- aws sts get-caller-identity   # shows assumed-role => IRSA
 - ECR auth tokens and SSO sessions expire ~12h — re-authenticate.
 - Purge OS packages **in the same `RUN` layer** as install, or the image won't shrink.
 - `COPY requirements.txt` **before** `COPY app.py` to keep dependency layers cached.
+- **Teardown:** delete the `LoadBalancer` Service *before* the cluster, or the ELB + its ENIs orphan and block VPC deletion.
+- **GuardDuty teardown gotcha:** GuardDuty EKS Runtime Monitoring auto-creates a `guardduty-data` VPC endpoint **and** a `GuardDutyManagedSecurityGroup-*` inside the cluster VPC. eksctl doesn't manage these, so its stack delete fails with `subnet/VPC has dependencies`. `cleanup.sh --all` now sweeps them automatically; manual fix order: delete endpoint → orphaned ENIs → managed SG → VPC → re-run `delete-stack`.
 
 ## License
 
